@@ -38,14 +38,13 @@
 #include "../utility/stringconvert.h"
 #include "module.h"
 
+#include <Windows.h>
 #include <shlobj.h>
-#include <windows.h>
 
 #include <algorithm>
 #include <iostream>
 
-#if SMTG_CPP17
-
+#if SMTG_CPP17 && (defined(_MSC_VER) || defined(__clang__))
 #if __has_include(<filesystem>)
 #define USE_FILESYSTEM 1
 #elif __has_include(<experimental/filesystem>)

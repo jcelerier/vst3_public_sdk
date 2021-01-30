@@ -40,7 +40,7 @@
 
 #if SMTG_OS_WINDOWS
 // keep this order
-#include <windows.h>
+#include <Windows.h>
 
 #include <shellapi.h>
 #else
