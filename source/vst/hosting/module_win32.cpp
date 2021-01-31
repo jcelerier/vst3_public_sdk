@@ -44,7 +44,7 @@
 #include <algorithm>
 #include <iostream>
 
-#if _HAS_CXX17 && defined(_MSC_VER)
+#if _HAS_CXX17 && (defined(_MSC_VER) || defined(__clang__))
 #if __has_include(<filesystem>)
 #define USE_FILESYSTEM 1
 #elif __has_include(<experimental/filesystem>)
