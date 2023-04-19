@@ -38,6 +38,8 @@
 
 #include "pluginterfaces/vst/vsttypes.h"
 #include <string>
+#include <cinttypes>
+#include <cstdint>
 
 //------------------------------------------------------------------------
 namespace VST3 {
