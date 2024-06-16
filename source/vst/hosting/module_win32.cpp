@@ -43,8 +43,9 @@
 
 #include <algorithm>
 #include <iostream>
+#define USE_FILESYSTEM 1
 
-#if SMTG_CPP17 && (defined(_MSC_VER) || defined(__clang__))
+#if SMTG_CPP17
 #if __has_include(<filesystem>)
 #define USE_FILESYSTEM 1
 #elif __has_include(<experimental/filesystem>)

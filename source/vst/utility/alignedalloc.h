@@ -41,7 +41,7 @@
 
 #include <cstdlib>
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include <malloc.h>
 #endif
 
@@ -68,7 +68,7 @@ void* aligned_alloc (size_t numBytes, uint32_t alignment)
 	void* data {nullptr};
 #if SMTG_OS_MACOS && MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_15
 	posix_memalign (&data, alignment, numBytes);
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
 	data = _aligned_malloc (numBytes, alignment);
 #else
 	data = std::aligned_alloc (alignment, numBytes);
