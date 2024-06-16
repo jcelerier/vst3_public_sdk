@@ -93,7 +93,11 @@ Optional<std::string> getCurrentMachineName ()
 	if (res != 0)
 		return {};
 
-	return {unameData.machine};
+#if defined(__linux__)
+  if(unameData.machine == std::string("aarch64"))
+    return {"armv8l"};
+#endif
+  return {unameData.machine};
 }
 
 //------------------------------------------------------------------------
