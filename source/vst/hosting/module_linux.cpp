@@ -85,7 +85,7 @@ using Path = filesystem::path;
 namespace {
 
 //------------------------------------------------------------------------
-Optional<std::string> getCurrentMachineName ()
+std::vector<std::string> getCurrentMachineName()
 {
 	struct utsname unameData;
 
@@ -93,11 +93,9 @@ Optional<std::string> getCurrentMachineName ()
 	if (res != 0)
 		return {};
 
-#if defined(__linux__)
-  if(unameData.machine == std::string("aarch64"))
-    return {"armv8l"};
-#endif
-  return {unameData.machine};
+	if(unameData.machine == std::string("aarch64"))
+		return {"aarch64", "armv8l"};
+	return {unameData.machine};
 }
 
 //------------------------------------------------------------------------
@@ -160,17 +158,20 @@ public:
 			return {};
 
 		// use the Machine Hardware Name (from uname cmd-line) as prefix for "-linux"
-		auto machine = getCurrentMachineName ();
-		if (!machine)
+		auto machines = getCurrentMachineName();
+		if(machines.empty())
 			return {};
 
-		modulePath /= *machine + "-linux";
-		if (!filesystem::is_directory (modulePath))
-			return {};
-
-		stem.replace_extension (".so");
-		modulePath /= stem;
-		return Optional<Path> (std::move (modulePath));
+		for(const std::string& machine : machines)
+		{
+			auto path = modulePath / (machine + "-linux");
+			if(filesystem::is_directory(path))
+			{
+				stem.replace_extension(".so");
+				return Optional<Path>(path / stem);
+			}
+		}
+		return {};
 	}
 
 	bool load (const std::string& inPath, std::string& errorDescription) override
