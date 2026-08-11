@@ -51,8 +51,8 @@ PanParameter::PanParameter (int32 flags, int32 id)
 
 	info.flags = flags;
 	info.id = id;
-	info.stepCount = 0;
-	info.defaultNormalizedValue = 0.5f;
+	info.stepCount = Vst::kStepCountContinuous;
+	info.defaultNormalizedValue = 0.5;
 	info.unitId = Vst::kRootUnitId;
 
 	setNormalized (.5f);

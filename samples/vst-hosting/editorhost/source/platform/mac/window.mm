@@ -82,7 +82,8 @@ bool Window::init (const std::string& name, Size size, bool resizeable,
 	                                            styleMask:styleMask
 	                                              backing:NSBackingStoreBuffered
 	                                                defer:YES];
-	[nsWindow setDelegate:impl->nsWindowDelegate];
+	nsWindow.delegate = impl->nsWindowDelegate;
+	nsWindow.title = [NSString stringWithCString:name.data () encoding:NSUTF8StringEncoding];
 	nsWindow.releasedWhenClosed = NO;
 	impl->nsWindowDelegate.nsWindow = nsWindow;
 	[nsWindow center];

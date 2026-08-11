@@ -21,7 +21,9 @@
 #include "note_expression_synth_processor.h"
 #include "vstgui/contrib/keyboardview.h"
 #include "vstgui/plugin-bindings/vst3editor.h"
+#include "pluginterfaces/vst/ivstmidilearn.h"
 #include "pluginterfaces/vst/ivstmidimapping2.h"
+
 
 //------------------------------------------------------------------------
 namespace Steinberg {

@@ -123,6 +123,14 @@ protected:
 	float mLastBlockMarkerValue {-0.5f};
 
 	int32 mNumNoteOns {0};
+	int32 mNumDataEvents {0};
+	int32 mNumPolyPressureEvents {0};
+	int32 mNumNoteExpressionValueEvents {0};
+	int32 mNumNoteExpressionTextEvents {0};
+	int32 mNumChordEvents {0};
+	int32 mNumScaleEvents {0};
+	int32 mNumNoteExpressionIntValueEvents {0};
+
 	uint32 mLatency {0}; // in samples
 	uint32 mWantedLatency {0}; // in samples
 	float mGeneratePeaks {0.f};

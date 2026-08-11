@@ -84,10 +84,20 @@ int allocate_shm_file (size_t size)
 	return fd;
 }
 
+/**
+ * https://wayland-book.com/surfaces-in-depth/hidpi.html
+ * Once you know the collection of outputs a client is shown on, 
+ * it should take the maximum value of the scale factors, multiply 
+ * the size (in pixels) of its buffers by this value, then render 
+ * the UI at 2x or 3x (or Nx) scale.
+ *
+ * Example code taken from: https://wayland-book.com/xdg-shell-basics/example-code.html/
+ */
 //------------------------------------------------------------------------
-struct wl_buffer* draw_frame (wl_shm* shm, Size inSize)
+struct wl_buffer* draw_frame (wl_shm* shm, Size inSize, int32_t scaleFactor)
 {
-	const int width = inSize.width, height = inSize.height;
+	const int width = inSize.width * scaleFactor;
+	const int height = inSize.height * scaleFactor;
 	int stride = width * 4;
 	int size = stride * height;
 
@@ -170,16 +180,11 @@ struct WaylandWindow::Impl
 	using FuncDoClose = std::function<void ()>;
 	FuncDoClose doCloseFunc;
 
-	using FuncOnScaleFactorChanged = std::function<void (float scaleFactor)>;
-	FuncOnScaleFactorChanged onScaleFactorChangedFunc;
-
 	void initSurfaceGeometry (int32_t width, int32_t height);
 	void addSurfaceListener ();
 	void addXdgSurfaceListener ();
 	void addToplevelListener ();
 	void addTopLevelDecorationListener ();
-
-	static void updateScaleFactor (WaylandWindow::Impl* self, int32_t factor);
 
 	static void handleXdgSurfaceConfigure (void* data, struct xdg_surface* xdg_surface,
 	                                       uint32_t serial);
@@ -230,9 +235,6 @@ auto WaylandWindow::make (const std::string& name, Size size, bool resizeable,
 	window->impl->title = name;
 	window->impl->size = size;
 	window->impl->doCloseFunc = [window] () { window->doClose (); };
-	window->impl->onScaleFactorChangedFunc = [window, controller] (float scaleFactor) {
-		controller->onContentScaleFactorChanged (*window.get (), scaleFactor);
-	};
 
 	window->impl->wlSurface = wl_compositor_create_surface (waylandClientContext.getCompositor ());
 	if (!window->impl->wlSurface)
@@ -252,7 +254,7 @@ auto WaylandWindow::make (const std::string& name, Size size, bool resizeable,
 	window->impl->addToplevelListener ();
 	window->impl->initSurfaceGeometry (window->impl->size.width, window->impl->size.height);
 
-	/* TODO
+	/* TODO: Some compositors do not support server side decorations.
 	if (std::string_view (interface) == zxdg_decoration_manager_v1_interface.name)
 	{
 	    static constexpr uint32_t kVersion = 8;
@@ -286,9 +288,11 @@ void WaylandWindow::Impl::handleXdgSurfaceConfigure (void* data, struct xdg_surf
 
 	xdg_surface_ack_configure (xdg_surface, serial);
 
-	auto buffer = draw_frame (self->waylandClientContext.getSharedMemory (), self->size);
+	// https://wayland-book.com/surfaces/shared-memory.html
+	auto buffer = draw_frame (self->waylandClientContext.getSharedMemory (), self->size, self->currentPreferredBufferScale);
 	wl_surface_set_buffer_scale (self->wlSurface, self->currentPreferredBufferScale);
 	wl_surface_attach (self->wlSurface, buffer, 0, 0);
+	wl_surface_damage (self->wlSurface, 0, 0, UINT32_MAX, UINT32_MAX);
 	wl_surface_commit (self->wlSurface);
 }
 
@@ -303,10 +307,30 @@ void WaylandWindow::Impl::handleXdgToplevelConfigure (void* data, xdg_toplevel* 
 
 	if (width > 0 && height > 0)
 	{
-		self->size.width = width;
-		self->size.height = height;
+		// TODO: For now we ignore the compositor's suggested width and height.
+		// The plug-in window cannot be resized externally yet.
+		// self->size.width = 350;
+		// self->size.height = 120;
 	}
 	xdg_toplevel_set_title (self->xdgToplevel, self->title.data ());
+
+	/* TODO: Evaluate window state
+	const uint32_t* state = nullptr;
+	wl_array_for_each(state, states)
+	{
+		switch (*state)
+		{
+			case XDG_TOPLEVEL_STATE_MAXIMIZED: break;
+			case XDG_TOPLEVEL_STATE_FULLSCREEN: break;
+			case XDG_TOPLEVEL_STATE_RESIZING: break;
+			case XDG_TOPLEVEL_STATE_ACTIVATED: break;
+			case XDG_TOPLEVEL_STATE_TILED_LEFT: break;
+			case XDG_TOPLEVEL_STATE_TILED_RIGHT: break;
+			case XDG_TOPLEVEL_STATE_TILED_TOP: break;
+			case XDG_TOPLEVEL_STATE_TILED_BOTTOM: break;
+			case XDG_TOPLEVEL_STATE_SUSPENDED: break;
+		}
+	}*/
 }
 
 //------------------------------------------------------------------------
@@ -331,6 +355,19 @@ void WaylandWindow::Impl::handleXdgToplevelWmCapabilities (void* data,
                                                            struct wl_array* capabilities)
 {
 	auto self = reinterpret_cast<WaylandWindow::Impl*> (data);
+
+	/* TODO: Evaluate capabilities
+	const uint32_t* capability = nullptr;
+	wl_array_for_each(capability, capabilities)
+	{
+		switch (*capability)
+		{
+			case XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU: break;
+			case XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE: break;
+			case XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN: break;
+			case XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE: break;
+		}
+	}*/
 }
 
 //------------------------------------------------------------------------
@@ -338,17 +375,6 @@ void WaylandWindow::Impl::handleTopLevelDecorationConfigure (
     void* data, struct zxdg_toplevel_decoration_v1* zxdg_toplevel_decoration_v1, uint32_t mode)
 {
 	auto self = reinterpret_cast<WaylandWindow::Impl*> (data);
-}
-
-//------------------------------------------------------------------------
-void WaylandWindow::Impl::updateScaleFactor (WaylandWindow::Impl* self, int32_t factor)
-{
-	self->currentPreferredBufferScale = factor;
-	wl_surface_set_buffer_scale (self->wlSurface, factor);
-	wl_surface_commit (self->wlSurface);
-
-	if (self->onScaleFactorChangedFunc)
-		self->onScaleFactorChangedFunc (factor);
 }
 
 //------------------------------------------------------------------------
@@ -371,7 +397,7 @@ void WaylandWindow::Impl::handleEnter (void* data, wl_surface* wl_surface, wl_ou
 		if (wlOutput.handle != output)
 			continue;
 
-		updateScaleFactor (self, wlOutput.scaleFactor);
+		self->currentPreferredBufferScale = wlOutput.scaleFactor;
 	}
 #endif
 }
@@ -393,7 +419,7 @@ void WaylandWindow::Impl::handlePreferredBufferScale (void* data, wl_surface* wl
 	if (wl_surface != self->wlSurface)
 		return;
 
-	updateScaleFactor (self, factor);
+	self->currentPreferredBufferScale = factor;
 }
 
 //------------------------------------------------------------------------

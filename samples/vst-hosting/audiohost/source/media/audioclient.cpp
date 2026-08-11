@@ -23,10 +23,8 @@
 #include "public.sdk/source/vst/utility/stringconvert.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
-#include <functional>
 
 #include <cassert>
-#include <limits>
 
 //------------------------------------------------------------------------
 namespace Steinberg {
@@ -50,7 +48,7 @@ static MidiCCMapping initMidiCtrlerAssignment (IComponent* component, IMidiMappi
 				midiCCMapping[b][i].resize (Vst::kCountCtrlNumber);
 	}
 
-	ParamID paramID;
+	ParamID paramID = kNoParamId;
 	for (int32 b = 0; b < busses; b++)
 	{
 		for (int16 ch = 0; ch < kMaxMidiChannels; ch++)
@@ -204,7 +202,7 @@ IMidiClient::IOSetup AudioClient::getMidiIOSetup () const
 	auto count = component->getBusCount (MediaTypes::kEvent, BusDirections::kInput);
 	for (int32_t i = 0; i < count; i++)
 	{
-		BusInfo info;
+		BusInfo info {};
 		if (component->getBusInfo (MediaTypes::kEvent, BusDirections::kInput, i, info) != kResultOk)
 			continue;
 
@@ -215,7 +213,7 @@ IMidiClient::IOSetup AudioClient::getMidiIOSetup () const
 	count = component->getBusCount (MediaTypes::kEvent, BusDirections::kOutput);
 	for (int32_t i = 0; i < count; i++)
 	{
-		BusInfo info;
+		BusInfo info {};
 		if (component->getBusInfo (MediaTypes::kEvent, BusDirections::kOutput, i, info) !=
 		    kResultOk)
 			continue;
@@ -234,7 +232,7 @@ IAudioClient::IOSetup AudioClient::getIOSetup () const
 	auto count = component->getBusCount (MediaTypes::kAudio, BusDirections::kOutput);
 	for (int32_t i = 0; i < count; i++)
 	{
-		BusInfo info;
+		BusInfo info {};
 		if (component->getBusInfo (MediaTypes::kAudio, BusDirections::kOutput, i, info) !=
 		    kResultOk)
 			continue;
@@ -249,7 +247,7 @@ IAudioClient::IOSetup AudioClient::getIOSetup () const
 	count = component->getBusCount (MediaTypes::kAudio, BusDirections::kInput);
 	for (int32_t i = 0; i < count; i++)
 	{
-		BusInfo info;
+		BusInfo info {};
 		if (component->getBusInfo (MediaTypes::kAudio, BusDirections::kInput, i, info) != kResultOk)
 			continue;
 
@@ -349,9 +347,6 @@ bool AudioClient::updateProcessSetup ()
 		return false;
 
 	processor->setProcessing (true); // != kResultOk
-	/*
-if (processor->setProcessing(true) != kResultOk)
-return false;*/
 
 	isProcessing = true;
 	return isProcessing;

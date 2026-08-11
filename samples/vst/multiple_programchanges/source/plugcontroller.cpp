@@ -9,7 +9,7 @@
 //-----------------------------------------------------------------------------
 // This file is part of a Steinberg SDK. It is subject to the license terms
 // in the LICENSE file found in the top-level directory of this distribution
-// and at www.steinberg.net/sdklicenses. 
+// and at www.steinberg.net/sdklicenses.
 // No part of the SDK, including this file, may be copied, modified, propagated,
 // or distributed except according to the terms contained in the LICENSE file.
 //-----------------------------------------------------------------------------
@@ -41,7 +41,7 @@ tresult PLUGIN_API PlugController::initialize (FUnknown* context)
 	//---Create Parameters------------
 
 	//---Bypass parameter---
-	int32 stepCount = 1;
+	int32 stepCount = kStepCountToggle;
 	ParamValue defaultVal = 0;
 	int32 flags = ParameterInfo::kCanAutomate | ParameterInfo::kIsBypass;
 	int32 tag = kBypassId;
@@ -124,15 +124,17 @@ tresult PLUGIN_API PlugController::setParamNormalized (ParamID tag, ParamValue v
 	}
 	else if (res == kResultOk && tag == kProgramCountId)
 	{
-		int32 numProgs = parameters.getParameter (kProgramCountId)->toPlain (value);
+		int32 numProgs =
+		    static_cast<int32> (parameters.getParameter (kProgramCountId)->toPlain (value));
 		if (mLastNumProgs != numProgs)
 		{
 			mLastNumProgs = numProgs;
 
 			for (int32 i = 0; i < kNumSlots; i++)
 			{
-				int32 kProgramListId = kProgramStartId + i;
-				buildProgramlist (kProgramListId, numProgs);
+				int32 programListId = kProgramStartId + i;
+				buildProgramlist (programListId, numProgs);
+				notifyProgramListChange (programListId, kAllProgramInvalid);
 			}
 			if (componentHandler)
 			{

@@ -17,9 +17,6 @@
 #include "hostcheck.h"
 #include "logevents.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
-#include "pluginterfaces/vst/ivstevents.h"
-#include "pluginterfaces/vst/ivstnoteexpression.h"
-#include "pluginterfaces/vst/ivstparameterchanges.h"
 
 //------------------------------------------------------------------------
 HostCheck::HostCheck ()

@@ -18,26 +18,21 @@
 #pragma once
 
 #include "eventlogdatabrowsersource.h"
-#include "hostcheck.h"
-#include "logevents.h"
 
 #include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/plugin-bindings/vst3editor.h"
 
 #include "public.sdk/source/common/threadchecker.h"
 #include "public.sdk/source/vst/utility/dataexchange.h"
-#include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
-
-#include "base/source/fstring.h"
 
 #include "pluginterfaces/vst/ivstautomationstate.h"
 #include "pluginterfaces/vst/ivstchannelcontextinfo.h"
 #include "pluginterfaces/vst/ivstmidilearn.h"
 #include "pluginterfaces/vst/ivstnoteexpression.h"
+#include "pluginterfaces/vst/ivstnoteonorchestralarticulationinfo.h"
 #include "pluginterfaces/vst/ivstparameterfunctionname.h"
 #include "pluginterfaces/vst/ivstphysicalui.h"
-#include "pluginterfaces/vst/ivstprefetchablesupport.h"
 #include "pluginterfaces/vst/ivstremapparamid.h"
 #include "pluginterfaces/vst/ivstrepresentation.h"
 
@@ -89,6 +84,7 @@ enum
 
 	kParamLowLatencyTag,
 	kParamRandomizeTag,
+	kParamRandomizeAroundCurrentTag,
 	kParamProcessModeTag,
 
 	kProcessWarnTag,
@@ -119,7 +115,8 @@ class HostCheckerController : public EditControllerEx1,
                               public IKeyswitchController,
                               public IParameterFunctionName,
                               public IDataExchangeReceiver,
-                              public IRemapParamID
+                              public IRemapParamID,
+                              public NoteOnOrchestralArticulation::IInfo
 {
 public:
 	using UTF8StringPtr = VSTGUI::UTF8StringPtr;
@@ -223,6 +220,11 @@ public:
 	                                         Vst::ParamID oldParamID /*in*/,
 	                                         Vst::ParamID& newParamID /*out*/) override;
 
+	//---NoteOnOrchestralArticulation::IInfo----------------
+	tresult PLUGIN_API getVariationsInfo (
+	    int32 busIndex, int16 channel,
+	    Vst::NoteOnOrchestralArticulation::ClassificationVariations& info /*out*/) override;
+
 	//--- --------------------------------------------------------------------------
 	void editorAttached (EditorView* editor) SMTG_OVERRIDE;
 	void editorRemoved (EditorView* editor) SMTG_OVERRIDE;
@@ -245,7 +247,7 @@ public:
 	{
 		if (sizeFactor <= 0)
 			return false;
-		ViewRect rect (0, 0, width, height);
+		ViewRect rect (0, 0, static_cast<int32> (width), static_cast<int32> (height));
 		size = rect;
 		return true;
 	}
@@ -291,7 +293,7 @@ protected:
 	ScoreMap mScoreMap;
 
 	VSTGUI::CVSTGUITimer* mProgressTimer {nullptr};
-	IProgress::ID mProgressID;
+	IProgress::ID mProgressID {0};
 	bool mInProgress {false};
 };
 

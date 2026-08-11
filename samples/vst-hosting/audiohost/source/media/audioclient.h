@@ -22,7 +22,7 @@
 #include "public.sdk/source/vst/hosting/eventlist.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include "public.sdk/source/vst/hosting/processdata.h"
-#include "pluginterfaces/vst/ivstaudioprocessor.h"
+
 #include <array>
 
 //------------------------------------------------------------------------
@@ -77,7 +77,6 @@ public:
 private:
 	void createLocalMediaServer (const Name& name);
 	void terminate ();
-	void updateBusBuffers (Buffers& buffers, HostProcessData& processData);
 	void initProcessData ();
 	void initProcessContext ();
 	bool updateProcessSetup ();
@@ -98,9 +97,9 @@ private:
 
 	MidiCCMapping midiCCMapping;
 	IMediaServerPtr mediaServer;
-	bool isProcessing = false;
-
 	Name name;
+
+	bool isProcessing = false;
 };
 
 //------------------------------------------------------------------------

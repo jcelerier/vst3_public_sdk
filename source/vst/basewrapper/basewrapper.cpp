@@ -18,6 +18,7 @@
 #include "public.sdk/source/vst/basewrapper/basewrapper.h"
 #include "public.sdk/source/vst/hosting/connectionproxy.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
+#include "public.sdk/source/vst/utility/midiconvert.h"
 
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/futils.h"
@@ -649,7 +650,7 @@ void BaseWrapper::addParameterChange (ParamID id, ParamValue value, int32 sample
 
 //------------------------------------------------------------------------
 /*!	Usually VST 2 hosts call setParameter (...) and getParameterDisplay (...) synchronously.
-In setParameter (...) param changes get queued (guiTransfer) and transfered in idle (::onTimer).
+In setParameter (...) param changes get queued (guiTransfer) and transferred in idle (::onTimer).
 The ::onTimer call almost always comes AFTER getParameterDisplay (...) and therefore returns an
 old
 value. To avoid sending back old values, getLastParamChange (...) returns the latest value
@@ -1119,7 +1120,7 @@ void BaseWrapper::processMidiEvent (Event& toAdd, char* midiData, bool isLive, i
 				toAdd.noteOn.channel = channel;
 				toAdd.noteOn.pitch = midiData[1];
 				toAdd.noteOn.tuning = detune;
-				toAdd.noteOn.velocity = (float)midiData[2] * kMidiScaler;
+				toAdd.noteOn.velocity = midi7BitToNormalized<float> (midiData[2]);
 				toAdd.noteOn.length = noteLength;
 				toAdd.noteOn.noteId = -1; // TODO ?
 			}
@@ -1131,8 +1132,8 @@ void BaseWrapper::processMidiEvent (Event& toAdd, char* midiData, bool isLive, i
 		{
 			toAdd.type = Vst::Event::kPolyPressureEvent;
 			toAdd.polyPressure.channel = channel;
-			toAdd.polyPressure.pitch = static_cast<int16>(midiData[1] & kDataMask);
-			toAdd.polyPressure.pressure = (float)(midiData[2] & kDataMask) * kMidiScaler;
+			toAdd.polyPressure.pitch = static_cast<int16> (midiData[1] & kDataMask);
+			toAdd.polyPressure.pressure = midi7BitToNormalized<float> (midiData[2] & kDataMask);
 			toAdd.polyPressure.noteId = -1; // TODO ?
 
 			mInputEvents->addEvent (toAdd);
@@ -1147,7 +1148,7 @@ void BaseWrapper::processMidiEvent (Event& toAdd, char* midiData, bool isLive, i
 				    mMidiCCMapping[toAdd.busIndex][channel][static_cast<size_t> (midiData[1])];
 				if (paramID != kNoParamId)
 				{
-					ParamValue value = (double)midiData[2] * kMidiScaler;
+					ParamValue value = midi7BitToNormalized<ParamValue> (midiData[2]);
 
 					int32 index = 0;
 					if (IParamValueQueue* queue = mInputChanges.addParameterData (paramID, index))
@@ -1166,10 +1167,9 @@ void BaseWrapper::processMidiEvent (Event& toAdd, char* midiData, bool isLive, i
 				ParamID paramID = mMidiCCMapping[toAdd.busIndex][channel][Vst::kPitchBend];
 				if (paramID != kNoParamId)
 				{
-					const double kPitchWheelScaler = 1. / (double)0x3FFF;
-
-					const int32 ctrl = static_cast<int32> ((midiData[1] & kDataMask) | ((midiData[2] & kDataMask) << 7));
-					ParamValue value = kPitchWheelScaler * (double)ctrl;
+					const uint16 ctrl = static_cast<uint16> ((midiData[1] & kDataMask) |
+					                                         ((midiData[2] & kDataMask) << 7));
+					ParamValue value = midi14BitToNormalized<ParamValue> (ctrl);
 
 					int32 index = 0;
 					if (IParamValueQueue* queue = mInputChanges.addParameterData (paramID, index))					
@@ -1188,7 +1188,7 @@ void BaseWrapper::processMidiEvent (Event& toAdd, char* midiData, bool isLive, i
 				ParamID paramID = mMidiCCMapping[toAdd.busIndex][channel][Vst::kAfterTouch];
 				if (paramID != kNoParamId)
 				{
-					ParamValue value = (ParamValue) (midiData[1] & kDataMask) * kMidiScaler;
+					ParamValue value = midi7BitToNormalized<ParamValue> (midiData[1] & kDataMask);
 
 					int32 index = 0;
 					if (IParamValueQueue* queue = mInputChanges.addParameterData (paramID, index))

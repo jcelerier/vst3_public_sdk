@@ -21,7 +21,6 @@
 
 #include "public.sdk/source/vst/vstaudioprocessoralgo.h"
 #include "public.sdk/source/vst/vsteventshelper.h"
-
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/futils.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -267,7 +266,8 @@ void HostCheckerProcessor::sendLatencyChanged ()
 //-----------------------------------------------------------------------------
 tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 {
-	mHostCheck.validate (data, mMinimumOfInputBufferCount, mMinimumOfOutputBufferCount);
+	mHostCheck.validate (data, static_cast<int32> (mMinimumOfInputBufferCount),
+	                     static_cast<int32> (mMinimumOfOutputBufferCount));
 
 	if (mCurrentState != State::kProcessing)
 	{
@@ -401,6 +401,7 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 		mLastNumSamples = data.numSamples;
 	} // (data.processContext)
 
+	// process Parameter changes
 	Algo::foreach (data.inputParameterChanges, [&] (IParamValueQueue& paramQueue) {
 		Algo::foreachLast (paramQueue, [&] (ParamID id, int32 /*sampleOffset*/, ParamValue value) {
 			if (id == kBypassTag)
@@ -412,7 +413,7 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 			else if (id == kLatencyTag)
 			{
 				mWantedLatency = static_cast<uint32> (value * HostChecker::kMaxLatencyInSeconds *
-				                                      data.processContext->sampleRate);
+				                                      processSetup.sampleRate);
 				addLogEvent (kLogIdInformLatencyChanged);
 			}
 			else if (id == kProcessingLoadTag)
@@ -453,7 +454,7 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 		// Generate Processing load
 		if (mProcessingLoad > 0)
 		{
-			int32 countLoop = static_cast<int32> (mProcessingLoad * 400);
+			auto countLoop = static_cast<int32> (mProcessingLoad * 400);
 			if (data.symbolicSampleSize == kSample32)
 			{
 				auto tmp1 = data.outputs[0].channelBuffers32[0][0];
@@ -549,7 +550,7 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 
 			const float kMaxNotesToDisplay = 5.f;
 
-			// check event from all input events and send them to the output event
+			// convert number of played notes to audio output
 			Algo::foreach (data.inputEvents, [&] (Event& event) {
 				switch (event.type)
 				{
@@ -558,33 +559,95 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 						mNumNoteOns++;
 						if (data.symbolicSampleSize == kSample32)
 							data.outputs[0].channelBuffers32[0][event.sampleOffset] =
-							    mNumNoteOns / kMaxNotesToDisplay;
+							    static_cast<float> (mNumNoteOns) / kMaxNotesToDisplay;
 						else // kSample64
 							data.outputs[0].channelBuffers64[0][event.sampleOffset] =
-							    mNumNoteOns / kMaxNotesToDisplay;
-						if (data.outputEvents)
-						{
-							data.outputEvents->addEvent (event);
-
-							Event evtMIDICC {};
-							Helpers::initLegacyMIDICCOutEvent (
-							    evtMIDICC, kCtrlModWheel, static_cast<uint8> (event.noteOn.channel),
-							    static_cast<uint8> (event.noteOn.velocity * 127));
-							data.outputEvents->addEvent (evtMIDICC);
-						}
+							    static_cast<double> (mNumNoteOns) / kMaxNotesToDisplay;
 						break;
 					//--- -------------------
 					case Event::kNoteOffEvent:
 						if (data.symbolicSampleSize == kSample32)
 							data.outputs[0].channelBuffers32[1][event.sampleOffset] =
-							    -mNumNoteOns / kMaxNotesToDisplay;
+							    -static_cast<float> (mNumNoteOns) / kMaxNotesToDisplay;
 						else // kSample64
 							data.outputs[0].channelBuffers64[1][event.sampleOffset] =
-							    -mNumNoteOns / kMaxNotesToDisplay;
-						if (data.outputEvents)
-							data.outputEvents->addEvent (event);
+							    -static_cast<double> (mNumNoteOns) / kMaxNotesToDisplay;
 						mNumNoteOns--;
 						break;
+
+					//--- -------------------
+					case Event::kDataEvent:
+						mNumDataEvents++;
+						break;
+					//--- -------------------
+					case Event::kPolyPressureEvent:
+						mNumPolyPressureEvents++;
+						break;
+					//--- -------------------
+					case Event::kNoteExpressionValueEvent:
+						mNumNoteExpressionValueEvents++;
+						break;
+					//--- -------------------
+					case Event::kNoteExpressionTextEvent:
+						mNumNoteExpressionTextEvents++;
+						break;
+					//--- -------------------
+					case Event::kChordEvent:
+						mNumChordEvents++;
+						break;
+					//--- -------------------
+					case Event::kScaleEvent:
+						mNumScaleEvents++;
+						break;
+					//--- -------------------
+					case Event::kNoteExpressionIntValueEvent:
+						mNumNoteExpressionIntValueEvents++;
+						/* TODO
+
+						// Handle Assignable Per Note Controller--------------------------
+						if (event.noteExpressionIntValue.typeId >=
+						        NoteExpressionTypeIDs::kMidi2AssignablePerNoteControllerStart &&
+						    event.noteExpressionIntValue.typeId <=
+						        NoteExpressionTypeIDs::kMidi2AssignablePerNoteControllerEnd)
+						{
+						}
+						// Handle Registered Per Note Controller--------------------------
+						else if (event.noteExpressionIntValue.typeId >=
+						             NoteExpressionTypeIDs::
+						                 kMidi2RegisteredPerNoteControllerStart &&
+						         event.noteExpressionIntValue.typeId <=
+						             NoteExpressionTypeIDs::kMidi2RegisteredPerNoteControllerEnd)
+						{
+						}
+						// Handle Note On Attribute--------------------------
+						else if (event.noteExpressionIntValue.typeId >=
+						             NoteExpressionTypeIDs::kMidi2NoteOnAttributeStart &&
+						         event.noteExpressionIntValue.typeId <=
+						             NoteExpressionTypeIDs::kMidi2NoteOnAttributeEnd)
+						{
+						    // Handle Orchestral Articulation--------------------------
+						    if (event.noteExpressionIntValue.typeId >=
+						            NoteExpressionTypeIDs::
+						                kMidi2NoteOnOrchestralArticulationStart &&
+						        event.noteExpressionIntValue.typeId <
+						            NoteExpressionTypeIDs::kMidi2NoteOnOrchestralArticulationEnd)
+						    {
+						    }
+						}
+						// Handle Note Off Attribute--------------------------
+						else if (event.noteExpressionIntValue.typeId >=
+						             NoteExpressionTypeIDs::kMidi2NoteOffAttributeStart &&
+						         event.noteExpressionIntValue.typeId <=
+						             NoteExpressionTypeIDs::kMidi2NoteOffAttributeEnd)
+						{
+						    // Handle Orchestral Articulation--------------------------
+						    if (event.noteExpressionIntValue.typeId ==
+						        NoteExpressionTypeIDs::kMidi2NoteOffOrchestralArticulation)
+						    {
+						    }
+						}*/
+						break;
+
 					//--- -------------------
 					default: break;
 				}
@@ -617,9 +680,32 @@ tresult PLUGIN_API HostCheckerProcessor::process (ProcessData& data)
 		}
 	}
 
+	// check event from all input events and send them to the output event
+	if (data.outputEvents)
+	{
+		Algo::foreach (data.inputEvents, [&] (Event& event) {
+			data.outputEvents->addEvent (event);
+
+			switch (event.type)
+			{
+				//--- -------------------
+				case Event::kNoteOnEvent:
+				{
+					Event evtMIDICC {};
+					Helpers::initLegacyMIDICCOutEvent (
+					    evtMIDICC, kCtrlModWheel, static_cast<uint8> (event.noteOn.channel),
+					    static_cast<int8> (event.noteOn.velocity * 127));
+					data.outputEvents->addEvent (evtMIDICC);
+				}
+				break;
+			}
+		});
+	}
+
+	// Generate output parameters
 	if (data.outputParameterChanges)
 	{
-		int32 idx;
+		int32 idx = 0;
 		if (mLastProcessMode != data.processMode)
 		{
 			if (auto* queue =
@@ -926,7 +1012,7 @@ tresult PLUGIN_API HostCheckerProcessor::setState (IBStream* state)
 	IBStreamer streamer (state, kLittleEndian);
 
 	// version
-	uint32 version;
+	uint32 version = 0;
 	streamer.readInt32u (version);
 	if (version < 1 || version > 1000)
 	{
@@ -946,7 +1032,7 @@ tresult PLUGIN_API HostCheckerProcessor::setState (IBStream* state)
 	if (streamer.readInt32u (latency) == false)
 		return kResultFalse;
 
-	uint32 bypass;
+	uint32 bypass = 0;
 	if (streamer.readInt32u (bypass) == false)
 		return kResultFalse;
 

@@ -263,6 +263,8 @@ protected:
 	bool isOfflineRender;
 
 private:
+	void ctor ();
+	void dtor ();
 	void buildUnitInfos (IUnitInfo* unitInfoController, UnitInfoMap& units) const;
 	void updateMidiMappingCache ();
 

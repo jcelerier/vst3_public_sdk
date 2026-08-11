@@ -31,6 +31,7 @@ Things to do :
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/hosting/parameterchanges.h"
 #include "public.sdk/source/vst/hosting/processdata.h"
+#include "public.sdk/source/vst/utility/midiconvert.h"
 #include "public.sdk/source/vst/utility/ump.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "base/source/fdynlib.h"
@@ -54,6 +55,10 @@ Things to do :
 #if !CA_USE_AUDIO_PLUGIN_ONLY && !defined(SMTG_AUWRAPPER_USES_AUSDK)
 #include "CAXException.h"
 #endif
+#if defined(SMTG_AUWRAPPER_USES_AUSDK)
+using CAMutex = ausdk::AUMutex;
+#endif
+
 
 #define SMTG_MAKE_STRING_PRIVATE_DONT_USE(x) #x
 #define SMTG_MAKE_STRING(x) SMTG_MAKE_STRING_PRIVATE_DONT_USE (x)
@@ -173,6 +178,35 @@ protected:
 };
 
 VST3DynLibrary* VST3DynLibrary::gInstance = nullptr;
+
+//------------------------------------------------------------------------
+template<typename Proc>
+bool executeOnMainThreadSync (CAMutex* mtx, Proc p)
+{
+	if (pthread_main_np () == 0)
+	{
+#if defined(SMTG_AUWRAPPER_USES_AUSDK)
+		// there's no lock in the official AUSDK anymore
+		dispatch_sync (dispatch_get_main_queue (), ^{
+			p ();
+		});
+#else
+		// release the lock held inside AUBase::ComponentEntryDispatch() to avoid dead lock if the
+		// main thread needs it
+		bool owned = mtx && mtx->IsOwnedByCurrentThread();
+		if (owned)
+			mtx->Unlock();
+		dispatch_sync (dispatch_get_main_queue (), ^{
+			CAMutex::Locker guard(mtx);
+			p();
+		});
+		if (owned)
+			mtx->Lock();
+#endif
+		return true;
+	}
+	return false;
+}
 
 namespace Vst {
 
@@ -332,9 +366,13 @@ static CFStringRef createCFStringFromString128 (const String128& string)
 //------------------------------------------------------------------------
 static void createString128FromCFString (CFStringRef inString, String128& outString)
 {
-	CFStringGetCharacters (inString,
-	                       CFRangeMake (0, std::max<CFIndex> (128, CFStringGetLength (inString))),
-	                       (UniChar*)outString);
+	memset (outString, 0, sizeof (outString));
+
+	CFStringGetCharacters (
+ 	    inString,
+	    CFRangeMake (0, std::min<CFIndex> ((sizeof (outString) / sizeof (UniChar)) - 1,
+	                                       CFStringGetLength (inString))),
+	   (UniChar*)outString);
 }
 
 //------------------------------------------------------------------------
@@ -432,6 +470,16 @@ AUWrapper::AUWrapper (ComponentInstanceRecord* ci)
 , isOfflineRender (false)
 {
 	FUNKNOWN_CTOR
+	ctor ();
+}
+
+//------------------------------------------------------------------------
+void AUWrapper::ctor ()
+{
+	if (executeOnMainThreadSync (GetMutex(), ^{ this->ctor (); }))
+	{
+		return;
+	}
 	AutoreleasePool ap;
 	initBundleRef ();
 
@@ -611,8 +659,12 @@ AUWrapper::AUWrapper (ComponentInstanceRecord* ci)
 }
 
 //------------------------------------------------------------------------
-AUWrapper::~AUWrapper ()
+void AUWrapper::dtor ()
 {
+	if (executeOnMainThreadSync (GetMutex(), ^{ this->dtor (); }))
+	{
+		return;
+	}
 	AutoreleasePool ap;
 	if (timer)
 		timer->release ();
@@ -658,7 +710,11 @@ AUWrapper::~AUWrapper ()
 
 	if (presets)
 		delete presets;
+}
 
+AUWrapper::~AUWrapper ()
+{
+	dtor ();
 	FUNKNOWN_DTOR
 }
 
@@ -782,6 +838,11 @@ static SpeakerArrangement numChannelsToSpeakerArrangement (UInt32 numChannels)
 //------------------------------------------------------------------------
 ComponentResult AUWrapper::Initialize ()
 {
+	__block ComponentResult mtResult = noErr;
+	if (executeOnMainThreadSync (GetMutex(), ^{ mtResult = this->Initialize (); }))
+	{
+		return mtResult;
+	}
 	if (audioProcessor && editController)
 	{
 		// match speaker arrangement with AU stream format
@@ -1516,7 +1577,6 @@ static constexpr uint8 kProgramChangeStatus = 0xC0; ///< program change
 static constexpr uint8 kAfterTouchStatus = 0xD0; ///< channel pressure
 static constexpr uint8 kPitchBendStatus = 0xE0; ///< lsb, msb
 
-//const float kMidiScaler = 1.f / 127.f;
 static constexpr uint8 kChannelMask = 0x0F;
 //static const uint8 kStatusMask = 0xF0;
 static constexpr uint32 kDataMask = 0x7F;
@@ -1547,8 +1607,7 @@ inline void AUWrapper::processOutputEvents (const AudioTimeStamp& inTimeStamp)
 					{
 						UInt8 status = (UInt8) (kNoteOn | (e.noteOn.channel & kChannelMask));
 						UInt8 data1 = (UInt8) (e.noteOn.pitch & kDataMask);
-						UInt8 data2 =
-						    (UInt8) ((int32) (e.noteOn.velocity * 127.f + 0.4999999f) & kDataMask);
+						UInt8 data2 = midi7BitFromNormalized (e.noteOn.velocity);
 						UInt8 channel = e.noteOn.channel;
 
 						mCallbackHelper->addEvent (status, channel, data1, data2, e.sampleOffset);
@@ -1559,8 +1618,7 @@ inline void AUWrapper::processOutputEvents (const AudioTimeStamp& inTimeStamp)
 					{
 						UInt8 status = (UInt8) (kNoteOff | (e.noteOff.channel & kChannelMask));
 						UInt8 data1 = e.noteOff.pitch;
-						UInt8 data2 =
-						    (UInt8) ((int32) (e.noteOff.velocity * 127.f + 0.4999999f) & kDataMask);
+						UInt8 data2 = midi7BitFromNormalized (e.noteOff.velocity);
 						UInt8 channel = e.noteOff.channel;
 
 						mCallbackHelper->addEvent (status, channel, data1, data2, e.sampleOffset);
@@ -2071,7 +2129,7 @@ OSStatus AUWrapper::HandleNoteOn (UInt8 inChannel, UInt8 inNoteNumber, UInt8 inV
 	e.type = Event::kNoteOnEvent;
 	e.noteOn.channel = inChannel;
 	e.noteOn.pitch = inNoteNumber;
-	e.noteOn.velocity = inVelocity / 127.;
+	e.noteOn.velocity = midi7BitToNormalized<float> (inVelocity);
 	e.noteOn.noteId = inNoteNumber;
 	e.sampleOffset = inStartFrame;
 
@@ -2089,7 +2147,7 @@ OSStatus AUWrapper::HandleNoteOff (UInt8 inChannel, UInt8 inNoteNumber, UInt8 in
 	e.type = Event::kNoteOffEvent;
 	e.noteOff.channel = inChannel;
 	e.noteOff.pitch = inNoteNumber;
-	e.noteOff.velocity = inVelocity / 127.;
+	e.noteOff.velocity = midi7BitToNormalized<float> (inVelocity);
 	e.noteOff.noteId = inNoteNumber;
 	e.sampleOffset = inStartFrame;
 
@@ -2110,7 +2168,7 @@ ComponentResult AUWrapper::StartNote (MusicDeviceInstrumentID inInstrument,
 
 	e.type = Event::kNoteOnEvent;
 	e.noteOn.pitch = inParams.mPitch;
-	e.noteOn.velocity = inParams.mVelocity / 127.;
+	e.noteOn.velocity = midi7BitToNormalized<float> (inParams.mVelocity);
 	e.noteOn.noteId = noteID;
 	e.sampleOffset = inOffsetSampleFrame;
 
@@ -2163,7 +2221,7 @@ OSStatus AUWrapper::HandleNonNoteEvent (UInt8 status, UInt8 channel, UInt8 data1
 		e.type = Event::kPolyPressureEvent;
 		e.polyPressure.channel = channel;
 		e.polyPressure.pitch = data1;
-		e.polyPressure.pressure = data2 / 127.;
+		e.polyPressure.pressure = midi7BitToNormalized<float> (data2);
 		e.sampleOffset = inStartFrame;
 
 		eventList.addEvent (e);
@@ -2195,14 +2253,14 @@ OSStatus AUWrapper::HandleNonNoteEvent (UInt8 status, UInt8 channel, UInt8 data1
 		case kAfterTouchStatus: // kMidiMessage_ChannelPressure
 		{
 			cn = kAfterTouch;
-			value = data1 / 127.f;
+			value = midi7BitToNormalized<ParamValue> (data1);
 			break;
 		}
 		//--- -----------------------
 		case kController: // kMidiMessage_ControlChange
 		{
 			cn = data1;
-			value = data2 / 127.f;
+			value = midi7BitToNormalized<ParamValue> (data2);
 			break;
 		}
 		//--- -----------------------
@@ -2267,8 +2325,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 			e.type = Event::kNoteOnEvent;
 			e.noteOn.channel = channel;
 			e.noteOn.pitch = note;
-			e.noteOn.velocity = static_cast<float> (velocity) /
-			                    static_cast<float> (std::numeric_limits<Velocity16>::max ());
+			e.noteOn.velocity = midiIntegralToNormalized<Velocity16, float> (velocity);
 			e.noteOn.noteId = note;
 			e.sampleOffset = sampleOffset;
 			w.eventList.addEvent (e);
@@ -2280,8 +2337,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 			e.type = Event::kNoteOffEvent;
 			e.noteOff.channel = channel;
 			e.noteOff.pitch = note;
-			e.noteOff.velocity = static_cast<float> (velocity) /
-			                     static_cast<float> (std::numeric_limits<Velocity16>::max ());
+			e.noteOff.velocity = midiIntegralToNormalized<Velocity16, float> (velocity);
 			e.noteOff.noteId = note;
 			e.sampleOffset = sampleOffset;
 			w.eventList.addEvent (e);
@@ -2293,8 +2349,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 			e.type = Event::kPolyPressureEvent;
 			e.polyPressure.channel = channel;
 			e.polyPressure.pitch = note;
-			e.polyPressure.pressure =
-			    data / static_cast<float> (std::numeric_limits<Data32>::max ());
+			e.polyPressure.pressure = midiIntegralToNormalized<Data32, float> (data);
 			e.sampleOffset = sampleOffset;
 			w.eventList.addEvent (e);
 		}
@@ -2328,8 +2383,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 				if (std::find (ignored.begin (), ignored.end (), controller) != ignored.end ())
 					return;
 				addControllerChange (group, channel, controller,
-				                     data /
-				                         static_cast<float> (std::numeric_limits<Data32>::max ()));
+				                     midiIntegralToNormalized<Data32, ParamValue> (data));
 			}
 		}
 		void onPitchBend (Group group, Channel channel, Data32 data) const override
@@ -2337,8 +2391,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 			if (!w.midiMappingCache.empty ())
 			{
 				addControllerChange (group, channel, ControllerNumbers::kPitchBend,
-				                     data /
-				                         static_cast<float> (std::numeric_limits<Data32>::max ()));
+				                     midiIntegralToNormalized<Data32, ParamValue> (data));
 			}
 		}
 		void onChannelPressure (Group group, Channel channel, Data32 data) const override
@@ -2346,8 +2399,7 @@ bool AUWrapper::handleMIDIEventPacket (UInt32 inOffsetSampleFrame, const MIDIEve
 			if (!w.midiMappingCache.empty ())
 			{
 				addControllerChange (group, channel, ControllerNumbers::kAfterTouch,
-				                     data /
-				                         static_cast<float> (std::numeric_limits<Data32>::max ()));
+				                     midiIntegralToNormalized<Data32, ParamValue> (data));
 			}
 		}
 
@@ -2480,13 +2532,7 @@ tresult PLUGIN_API AUWrapper::restartComponent (int32 flags)
 
 	if (flags & kLatencyChanged)
 	{
-		AudioUnitEvent auEvent;
-		auEvent.mArgument.mProperty.mAudioUnit = GetComponentInstance ();
-		auEvent.mArgument.mProperty.mPropertyID = kAudioUnitProperty_Latency;
-		auEvent.mArgument.mProperty.mScope = kAudioUnitScope_Global;
-		auEvent.mArgument.mProperty.mElement = 0;
-		auEvent.mEventType = kAudioUnitEvent_PropertyChange;
-		AUEventListenerNotify (paramListenerRef, NULL, &auEvent);
+		PropertyChanged (kAudioUnitProperty_Latency, kAudioUnitScope_Global, 0);
 		result = kResultTrue;
 	}
 	// TODO: finish restartComponent implementation

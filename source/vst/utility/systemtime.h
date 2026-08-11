@@ -33,11 +33,11 @@ namespace Vst {
  *	realtime audio process block. Otherwise an approximation via platform APIs is used.
  *
  *	This can be used to synchronize audio and visuals. As known, the audio process block is always
- *	called ealier as the audio which was generated passes the audio monitors or headphones.
+ *	called earlier as the audio which was generated passes the audio monitors or headphones.
  *	Depending on the audio graph this can be so long that your eyes will see the visualization (if
  *	not synchronized) earlier then your ears will hear the sound.
  *	To synchronize you need to queue your visualization data on the controller side timestamped with
- *	the time from the process block and dequed when it's time for the data to be visualized.
+ *	the time from the process block and dequeued when it's time for the data to be visualized.
  */
 class SystemTime
 {

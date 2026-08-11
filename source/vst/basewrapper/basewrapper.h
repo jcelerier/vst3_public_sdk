@@ -288,7 +288,6 @@ const uint8 kProgramChangeStatus = 0xC0; ///< program change
 const uint8 kAfterTouchStatus = 0xD0; ///< channel pressure
 const uint8 kPitchBendStatus = 0xE0; ///< lsb, msb
 
-const float kMidiScaler = 1.f / 127.f;
 static const uint8 kChannelMask = 0x0F;
 static const uint8 kStatusMask = 0xF0;
 static const uint32 kDataMask = 0x7F;

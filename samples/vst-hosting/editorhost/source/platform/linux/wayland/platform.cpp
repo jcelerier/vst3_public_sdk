@@ -129,7 +129,7 @@ private:
 	WaylandDisplayPtr displayPtr;
 	wl_event_queue* eventQueue {nullptr};
 	WaylandWindows windows;
-	IPtr<RunLoop> runLoop;
+	IPtr<RunLoop> pluginRunLoop;
 
 	bool isQuitting = false;
 	bool shouldTerminate () { return isQuitting; }
@@ -163,7 +163,7 @@ void Platform::initWayland ()
 //------------------------------------------------------------------------
 FUnknown* Platform::getPluginFactoryContext ()
 {
-	return &Steinberg::Linux::RunLoopImpl::instance ();
+	return pluginRunLoop;
 }
 
 //------------------------------------------------------------------------
@@ -171,7 +171,7 @@ void Platform::run (const std::vector<std::string>& cmdArgs)
 {
 	initWayland ();
 
-	runLoop = owned (new RunLoop (getDisplay ()));
+	pluginRunLoop = owned (new RunLoop (getDisplay ()));
 
 	// start server dispatch before initializing the application, otherwise plug-ins might block the
 	// main thread
@@ -179,7 +179,7 @@ void Platform::run (const std::vector<std::string>& cmdArgs)
 	Threading::Thread serverThread (&Platform::threadEntry, this);
 
 	application->init (cmdArgs);
-	runLoop->run ();
+	pluginRunLoop->run ();
 
 	closeCancelSockets (cancelFd);
 	serverThread.join ();
@@ -286,7 +286,7 @@ WindowPtr Platform::createWindow (const std::string& title, Size size, bool resi
 		    if (it != windows.end ())
 			    windows.erase (it);
 	    },
-	    this, runLoop, this, client);
+	    this, pluginRunLoop, this, client);
 	windows.push_back (window);
 	return window;
 }
@@ -296,7 +296,7 @@ void Platform::quit ()
 {
 	assert (getDisplay ());
 	isQuitting = true;
-	runLoop->stop ();
+	pluginRunLoop->stop ();
 	if (application)
 		application->terminate ();
 	WaylandServerDelegate::IWaylandServer::instance ().shutdown ();

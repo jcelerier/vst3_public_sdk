@@ -10,7 +10,7 @@
 //-----------------------------------------------------------------------------
 // This file is part of a Steinberg SDK. It is subject to the license terms
 // in the LICENSE file found in the top-level directory of this distribution
-// and at www.steinberg.net/sdklicenses. 
+// and at www.steinberg.net/sdklicenses.
 // No part of the SDK, including this file, may be copied, modified, propagated,
 // or distributed except according to the terms contained in the LICENSE file.
 //-----------------------------------------------------------------------------
@@ -499,7 +499,8 @@ IController* ControllerWithUI::createSubController (UTF8StringPtr _name,
 		{
 			midiLearnSupported = pis->isPlugInterfaceSupported (IMidiLearn::iid) == kResultTrue;
 			if (!midiLearnSupported)
-				midiLearnSupported = pis->isPlugInterfaceSupported (IMidiLearn2::iid) == kResultTrue;
+				midiLearnSupported =
+				    pis->isPlugInterfaceSupported (IMidiLearn2::iid) == kResultTrue;
 		}
 #endif
 		return new ConditionalRemoveViewController (editor, midiLearnSupported);
@@ -598,7 +599,7 @@ tresult PLUGIN_API ControllerWithUI::onLiveMIDIControllerInput (int32 busIndex, 
 	{
 		removeCurrentMidiLearnParamAssignment ();
 		midiCCMapping[{CCType::CC, midiCC}] = midiLearnParamID;
-		
+
 		if (auto _componentHandler = getComponentHandler ())
 			_componentHandler->restartComponent (kMidiCCAssignmentChanged);
 	}
@@ -606,12 +607,14 @@ tresult PLUGIN_API ControllerWithUI::onLiveMIDIControllerInput (int32 busIndex, 
 }
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API ControllerWithUI::onLiveMidi2ControllerInput (BusIndex index, MidiChannel channel,
+tresult PLUGIN_API ControllerWithUI::onLiveMidi2ControllerInput (BusIndex index,
+                                                                 MidiChannel channel,
                                                                  Midi2Controller midiCC)
 {
 	if (!doMIDILearn || index != 0 || channel != 0 || midiLearnParamID == InvalidParamID)
 		return kResultFalse;
-	CCKey key { midiCC.registered ? CCType::RPN : CCType::NRPN, (midiCC.bank << 7) | midiCC.index };
+	CCKey key {Midi2Controller::isRegisteredController (midiCC) ? CCType::RPN : CCType::NRPN,
+	           (Midi2Controller::bank (midiCC) << 7) | Midi2Controller::index (midiCC)};
 	auto currentMapping = midiCCMapping.find (key);
 	if (currentMapping == midiCCMapping.end () || currentMapping->second != midiLearnParamID)
 	{
@@ -625,7 +628,8 @@ tresult PLUGIN_API ControllerWithUI::onLiveMidi2ControllerInput (BusIndex index,
 }
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API ControllerWithUI::onLiveMidi1ControllerInput (BusIndex index, MidiChannel channel,
+tresult PLUGIN_API ControllerWithUI::onLiveMidi1ControllerInput (BusIndex index,
+                                                                 MidiChannel channel,
                                                                  CtrlNumber midiCC)
 {
 	return onLiveMIDIControllerInput (index, channel, midiCC);

@@ -15,7 +15,6 @@
 //-----------------------------------------------------------------------------
 
 #include "utf16namecontroller.h"
-#include "utf16namecids.h"
 #include "pluginterfaces/base/ustring.h"
 #include "pluginterfaces/vst/ivstunits.h"
 
@@ -73,7 +72,7 @@ tresult PLUGIN_API UTF16NameController::initialize (FUnknown* context)
 	addUnit (unit);
 
 	//---Create Parameters------------
-	int32 stepCount = 0;
+	int32 stepCount = Vst::kStepCountContinuous;
 	Vst::ParamValue defaultVal = 0;
 	int32 flags = Vst::ParameterInfo::kNoFlags;
 	int32 tag = 100;

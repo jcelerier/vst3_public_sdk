@@ -18,14 +18,11 @@
 #include "public.sdk/samples/vst-hosting/editorhost/source/platform/iplatform.h"
 #include "public.sdk/samples/vst-hosting/editorhost/source/platform/win32/window.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
-#include "pluginterfaces/base/ftypes.h"
 
 #include <algorithm>
-#include <objbase.h>
 #include <shellapi.h>
 #include <string>
 #include <vector>
-#include <windows.h>
 
 //------------------------------------------------------------------------
 namespace Steinberg {

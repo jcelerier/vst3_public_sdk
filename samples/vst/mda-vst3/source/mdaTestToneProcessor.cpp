@@ -127,11 +127,11 @@ void TestToneProcessor::doProcessing (ProcessData& data)
 					break;
 
 			case 2: //noise
-			#if WIN32  
+#if SMTG_OS_WINDOWS  
 			case 3: x = (float)(rand() - 16384); //for RAND_MAX = 32767
-			#else //mac/gcc
+#else //mac/gcc
 			case 3: x = (float)((rand() & 0x7FFF) - 16384);
-			#endif
+#endif // SMTG_OS_WINDOWS
 					if (m==3)
 					{
 					z0 = 0.997f * z0 + 0.029591f * x; //pink filter

@@ -18,8 +18,9 @@
 
 #if SMTG_OS_LINUX
 
-#include <cstdio> 
-#include <pthread.h>
+#include <cstdio>
+#include <exception>
+#include <pthread.h> // for POSIX threads
 
 //------------------------------------------------------------------------
 namespace Steinberg {

@@ -500,7 +500,7 @@ void Voice<SamplePrecision>::noteOn (int32 _pitch, ParamValue velocity, float _t
 	currentSinusDetune = 0.;
 	if (this->globalParameters->sinusDetune != 0.)
 	{
-		currentSinusDetune = VoiceStatics::freqTab[this->pitch] * (::pow (2.0, this->globalParameters->sinusDetune * 2.0 / 12.0) - 1);
+		currentSinusDetune = VoiceStatics::freqTab[_pitch] * (::pow (2.0, this->globalParameters->sinusDetune * 2.0 / 12.0) - 1);
 	}
 	this->values[kSinusDetune] = currentSinusDetune;
 	this->values[kTuningMod] = 0;

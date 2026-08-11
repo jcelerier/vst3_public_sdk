@@ -17,7 +17,6 @@
 #include "shared.h"
 #include "public.sdk/source/vst/utility/dataexchange.h"
 #include "public.sdk/source/vst/vstaudioeffect.h"
-#include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 

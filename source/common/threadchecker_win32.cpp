@@ -17,7 +17,9 @@
 #include "threadchecker.h"
 
 #if SMTG_OS_WINDOWS
+
 #include <windows.h>
+#include <exception>
 
 //------------------------------------------------------------------------
 namespace Steinberg {

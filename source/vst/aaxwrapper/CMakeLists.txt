@@ -37,7 +37,7 @@ if(NOT SMTG_LINUX)
         add_compile_options(-Wno-incompatible-ms-struct)
     elseif(SMTG_WIN)
         # too much warnings in the AAX SDK!!
-        add_compile_options(/wd4996)
+        add_compile_options(/wd4996) # 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strdup.
         add_definitions(-D_CRT_SECURE_NO_WARNINGS)
         add_compile_options(/GR)
         if(MSVC)

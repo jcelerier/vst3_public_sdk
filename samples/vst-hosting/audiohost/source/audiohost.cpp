@@ -18,21 +18,18 @@
 #include "public.sdk/samples/vst-hosting/audiohost/source/platform/appinit.h"
 #include "public.sdk/source/vst/hosting/hostclasses.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
-#include "base/source/fcommandline.h"
 #include "pluginterfaces/base/funknown.h"
 #include "pluginterfaces/base/fstrdefs.h"
-#include "pluginterfaces/gui/iplugview.h"
-#include "pluginterfaces/gui/iplugviewcontentscalesupport.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
-#include "pluginterfaces/vst/vsttypes.h"
+
 #include <cstdio>
 #include <iostream>
 
-#if WIN32
-#include "windows.h"
+#if SMTG_OS_WINDOWS
+#include <windows.h>
 #include <wtypes.h>
-#endif
+#endif // SMTG_OS_WINDOWS
 
 //------------------------------------------------------------------------
 namespace Steinberg {
@@ -49,7 +46,7 @@ App::~App () noexcept
 
 //------------------------------------------------------------------------
 void App::startAudioClient (const std::string& path, VST3::Optional<VST3::UID> effectID,
-                            uint32 flags)
+                            uint32 /*flags*/)
 {
 	std::string error;
 	module = VST3::Hosting::Module::create (path, error);
@@ -126,7 +123,7 @@ void App::terminate ()
 } // Steinberg
 
 //------------------------------------------------------------------------
-#if WIN32
+#if SMTG_OS_WINDOWS
 int wmain (int argc, wchar_t* argv[])
 {
 	std::vector<std::string> cmdArgs;
@@ -155,4 +152,4 @@ int main (int argc, char* argv[])
 
 	return 0;
 }
-#endif
+#endif // SMTG_OS_WINDOWS

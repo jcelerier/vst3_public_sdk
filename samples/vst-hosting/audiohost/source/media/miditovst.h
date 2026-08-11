@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include "public.sdk/source/vst/utility/midiconvert.h"
 #include "public.sdk/source/vst/utility/optional.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include <functional>
-#include <limits>
 
 //------------------------------------------------------------------------
 namespace Steinberg {
@@ -36,14 +36,7 @@ const uint8_t kAfterTouchStatus = 0xD0; ///< channel pressure
 const uint8_t kPitchBendStatus = 0xE0; ///< lsb, msb
 static const uint32 kDataMask = 0x7F;
 
-const float kMidiScaler = 1.f / 127.f;
-
 using MidiData = uint8_t;
-
-float toNormalized (const MidiData& data)
-{
-	return (float)data * kMidiScaler;
-}
 
 using OptionalEvent = VST3::Optional<Event>;
 
@@ -62,7 +55,7 @@ OptionalEvent midiToEvent (MidiData status, MidiData channel, MidiData midiData0
 			new_event.type = Event::kNoteOffEvent;
 			new_event.noteOff.channel = channel;
 			new_event.noteOff.pitch = midiData0;
-			new_event.noteOff.velocity = toNormalized (midiData1);
+			new_event.noteOff.velocity = midi7BitToNormalized<float> (midiData1);
 			return new_event;
 		}
 		if (status == kNoteOn) // note on
@@ -71,7 +64,7 @@ OptionalEvent midiToEvent (MidiData status, MidiData channel, MidiData midiData0
 			new_event.type = Event::kNoteOnEvent;
 			new_event.noteOn.channel = channel;
 			new_event.noteOn.pitch = midiData0;
-			new_event.noteOn.velocity = toNormalized (midiData1);
+			new_event.noteOn.velocity = midi7BitToNormalized<float> (midiData1);
 			return new_event;
 		}
 	}
@@ -81,7 +74,7 @@ OptionalEvent midiToEvent (MidiData status, MidiData channel, MidiData midiData0
 		new_event.type = Vst::Event::kPolyPressureEvent;
 		new_event.polyPressure.channel = channel;
 		new_event.polyPressure.pitch = midiData0;
-		new_event.polyPressure.pressure = toNormalized (midiData1);
+		new_event.polyPressure.pressure = midi7BitToNormalized<float> (midiData1);
 		return new_event;
 	}
 
@@ -102,7 +95,7 @@ OptionParamChange midiToParameter (MidiData status, MidiData channel, MidiData m
 		paramChange.first = toParamID (channel, midiData1);
 		if (paramChange.first != kNoParamId)
 		{
-			paramChange.second = (double)midiData2 * kMidiScaler;
+			paramChange.second = midi7BitToNormalized<ParamValue> (midiData2);
 			return paramChange;
 		}
 	}
@@ -111,10 +104,8 @@ OptionParamChange midiToParameter (MidiData status, MidiData channel, MidiData m
 		paramChange.first = toParamID (channel, Vst::kPitchBend);
 		if (paramChange.first != kNoParamId)
 		{
-			const double kPitchWheelScaler = 1. / (double)0x3FFF;
-
-			const int32 ctrl = (midiData1 & kDataMask) | (midiData2 & kDataMask) << 7;
-			paramChange.second = kPitchWheelScaler * (double)ctrl;
+			const uint16 ctrl = (midiData1 & kDataMask) | (midiData2 & kDataMask) << 7;
+			paramChange.second = midi14BitToNormalized<ParamValue> (ctrl);
 			return paramChange;
 		};
 	}
@@ -123,7 +114,7 @@ OptionParamChange midiToParameter (MidiData status, MidiData channel, MidiData m
 		paramChange.first = toParamID (channel, Vst::kAfterTouch);
 		if (paramChange.first != kNoParamId)
 		{
-			paramChange.second = (ParamValue) (midiData1 & kDataMask) * kMidiScaler;
+			paramChange.second = midi7BitToNormalized<ParamValue> (midiData1 & kDataMask);
 			return paramChange;
 		};
 	}

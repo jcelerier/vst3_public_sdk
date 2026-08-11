@@ -18,6 +18,7 @@
 
 #if SMTG_OS_MACOS
 
+#include <exception>
 #include <pthread.h>
 #include <Foundation/Foundation.h>
 
@@ -50,7 +51,7 @@ std::unique_ptr<ThreadChecker> ThreadChecker::create ()
 }
 
 //------------------------------------------------------------------------
-} // Vst
-} // Steinberg
+} // namespace Vst
+} // namespace Steinberg
 
-#endif
+#endif // SMTG_OS_MACOS

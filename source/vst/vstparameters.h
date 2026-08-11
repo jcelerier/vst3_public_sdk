@@ -38,7 +38,7 @@ public:
 	Parameter ();
 	Parameter (const ParameterInfo&);
 	Parameter (const TChar* title, ParamID tag, const TChar* units = nullptr,
-	           ParamValue defaultValueNormalized = 0., int32 stepCount = 0,
+	           ParamValue defaultValueNormalized = 0., int32 stepCount = kStepCountContinuous,
 	           int32 flags = ParameterInfo::kCanAutomate, UnitID unitID = kRootUnitId,
                const TChar* shortTitle = nullptr);
 	~Parameter () override;
@@ -94,7 +94,7 @@ public:
 	RangeParameter (const ParameterInfo& paramInfo, ParamValue _minPlain, ParamValue _maxPlain);
 	RangeParameter (const TChar* title, ParamID tag, const TChar* units = nullptr,
 	                ParamValue minPlain = 0., ParamValue maxPlain = 1.,
-	                ParamValue defaultValuePlain = 0., int32 stepCount = 0,
+	                ParamValue defaultValuePlain = 0., int32 stepCount = kStepCountContinuous,
 	                int32 flags = ParameterInfo::kCanAutomate, UnitID unitID = kRootUnitId,
                     const TChar* shortTitle = nullptr);
 
@@ -183,7 +183,8 @@ public:
 	Parameter* addParameter (const ParameterInfo& info);
 
 	/** Creates and adds a new parameter with given properties. */
-	Parameter* addParameter (const TChar* title, const TChar* units = nullptr, int32 stepCount = 0,
+	Parameter* addParameter (const TChar* title, const TChar* units = nullptr,
+	                         int32 stepCount = kStepCountContinuous,
 	                         ParamValue defaultValueNormalized = 0.,
 	                         int32 flags = ParameterInfo::kCanAutomate, int32 tag = -1,
 	                         UnitID unitID = kRootUnitId, const TChar* shortTitle = nullptr);

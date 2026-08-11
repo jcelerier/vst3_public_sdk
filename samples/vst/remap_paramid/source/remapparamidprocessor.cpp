@@ -71,8 +71,8 @@ tresult PLUGIN_API TestRemapParamIDProcessor::process (Vst::ProcessData& data)
 		{
 			if (auto* paramQueue = data.inputParameterChanges->getParameterData (index))
 			{
-				Vst::ParamValue value;
-				int32 sampleOffset;
+				Vst::ParamValue value {};
+				int32 sampleOffset = 0;
 				int32 numPoints = paramQueue->getPointCount ();
 				switch (paramQueue->getParameterId ())
 				{

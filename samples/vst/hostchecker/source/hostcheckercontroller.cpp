@@ -20,22 +20,23 @@
 #include "cids.h"
 #include "editorsizecontroller.h"
 #include "eventlogdatabrowsersource.h"
-#include "hostcheckerprocessor.h"
 #include "logevents.h"
-#include "base/source/fstreamer.h"
-
 #include "public.sdk/source/common/systemclipboard.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
 #include "public.sdk/source/vst/vstcomponentbase.h"
 #include "public.sdk/source/vst/vstrepresentation.h"
+#include "base/source/fstreamer.h"
+#include "base/source/fstring.h"
 #include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/base/ustring.h"
+
 #include "pluginterfaces/vst/ivstcontextmenu.h"
 #include "pluginterfaces/vst/ivstmidicontrollers.h"
 #include "pluginterfaces/vst/ivstpluginterfacesupport.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
+#include "pluginterfaces/vst/ivsttransportcontrol.h"
 
-#include "pluginterfaces/vst/ivstdataexchange.h"
 #include <sstream>
 
 #define THREAD_CHECK_MSG(msg) "The host called '" msg "' in the wrong thread context.\n"
@@ -65,7 +66,7 @@ public:
 		if (shortTitle)
 			UString (info.shortTitle, str16BufferSize (String128)).assign (shortTitle);
 
-		info.stepCount = 0;
+		info.stepCount = kStepCountContinuous;
 		info.defaultNormalizedValue = valueNormalized = 0;
 		info.flags = flags;
 		info.id = tag;
@@ -455,12 +456,16 @@ HostCheckerController::HostCheckerController ()
 	mScoreMap.emplace (kLogIdIParameterFunctionNameDryWetSupported, 1.f);
 	mScoreMap.emplace (kLogIdIParameterFunctionNameLowLatencySupported, 1.f);
 	mScoreMap.emplace (kLogIdIParameterFunctionNameRandomizeSupported, 1.f);
+	mScoreMap.emplace (kLogIdIParameterFunctionNameRandomizeAroundCurrentSupported, 1.f);
 
 	mScoreMap.emplace (kLogIdIComponentHandlerSystemTimeSupported, 1.f);
 	mScoreMap.emplace (kLogIdIDataExchangeHandlerSupported, 1.f);
 	mScoreMap.emplace (kLogIdIDataExchangeReceiverSupported, 1.f);
 
 	mScoreMap.emplace (kLogIdIRemapParamIDSupported, 1.f);
+	mScoreMap.emplace (kLogIdITransportControlSupported, 1.f);
+
+	mScoreMap.emplace (kLogIdINoteOnOrchestralArticulationInfoSupported, 1.f);
 }
 
 //-----------------------------------------------------------------------------
@@ -537,6 +542,8 @@ tresult PLUGIN_API HostCheckerController::initialize (FUnknown* context)
 
 		parameters.addParameter (STR16 ("ParamRandomize"), STR16 (""), 1, 0,
 		                         ParameterInfo::kNoFlags, kParamRandomizeTag);
+		parameters.addParameter (STR16 ("ParamRandomizeAroundCurrent"), STR16 (""), 1, 0,
+		                         ParameterInfo::kNoFlags, kParamRandomizeAroundCurrentTag);
 
 		parameters.addParameter (STR16 ("ParamLowLatency"), STR16 (""), 1, 0,
 		                         ParameterInfo::kNoFlags, kParamLowLatencyTag);
@@ -696,6 +703,12 @@ tresult PLUGIN_API HostCheckerController::initialize (FUnknown* context)
 
 		if (plugInterfaceSupport->isPlugInterfaceSupported (IRemapParamID::iid) == kResultTrue)
 			addFeatureLog (kLogIdIRemapParamIDSupported);
+		if (plugInterfaceSupport->isPlugInterfaceSupported (ITransportControl::iid) == kResultTrue)
+			addFeatureLog (kLogIdITransportControlSupported);
+
+		if (plugInterfaceSupport->isPlugInterfaceSupported (
+		        NoteOnOrchestralArticulation::IInfo::iid) == kResultTrue)
+			addFeatureLog (kLogIdINoteOnOrchestralArticulationInfoSupported);
 	}
 	else
 	{
@@ -722,6 +735,24 @@ tresult PLUGIN_API HostCheckerController::initialize (FUnknown* context)
 			{ // should deliver the right pointer normally!
 				addFeatureLog (kLogWrongCOMBehaviorFUnknown2);
 			}
+		}
+		if (auto transportControl = U::cast<ITransportControl> (hostContext))
+		{
+			addFeatureLog (kLogIdITransportControlSupported);
+			if (transportControl->isActionSupported (ITransportControl::PlaybackStart) ==
+			    kResultTrue)
+				addFeatureLog (kLogIdITransportControlPlaySupported);
+			if (transportControl->isActionSupported (ITransportControl::RecordOnPlaybackStart) ==
+			        kResultTrue ||
+			    transportControl->isActionSupported (
+			        ITransportControl::LocateAndRecordOnPlaybackStart) == kResultTrue)
+				addFeatureLog (kLogIdITransportControlRecordSupported);
+			if (transportControl->isActionSupported (ITransportControl::Locate) == kResultTrue)
+				addFeatureLog (kLogIdITransportControlLocateSupported);
+			if (transportControl->isActionSupported (ITransportControl::CycleOn) == kResultTrue ||
+			    transportControl->isActionSupported (ITransportControl::SetCycleStart) ==
+			        kResultTrue)
+				addFeatureLog (kLogIdITransportControlCycleSupported);
 		}
 	}
 
@@ -755,8 +786,8 @@ tresult PLUGIN_API HostCheckerController::terminate ()
 //-----------------------------------------------------------------------------
 float HostCheckerController::updateScoring (int64 iD)
 {
-	float score = 0;
-	float total = 0;
+	float score = 0.f;
+	float total = 0.f;
 
 	if (iD >= 0)
 		mScoreMap[iD].use = true;
@@ -768,10 +799,10 @@ float HostCheckerController::updateScoring (int64 iD)
 		if (scoreEntry.use)
 			score += scoreEntry.factor;
 	}
-	if (total)
+	if (total > 0.f)
 		score = score / total;
 	else
-		score = 0;
+		score = 0.f;
 
 	if (auto val = parameters.getParameter (kScoreTag))
 		val->setNormalized (score);
@@ -838,7 +869,7 @@ tresult PLUGIN_API HostCheckerController::setComponentState (IBStream* state)
 	}
 
 	// version
-	uint32 version;
+	uint32 version = 0;
 	streamer.readInt32u (version);
 	if (version < 1 || version > 1000)
 	{
@@ -854,11 +885,11 @@ tresult PLUGIN_API HostCheckerController::setComponentState (IBStream* state)
 		SMTG_ASSERT (false)
 	}
 
-	uint32 latency;
+	uint32 latency = 0;
 	if (streamer.readInt32u (latency) == false)
 		return kResultFalse;
 
-	uint32 bypass;
+	uint32 bypass = 0;
 	if (streamer.readInt32u (bypass) == false)
 		return kResultFalse;
 
@@ -969,6 +1000,10 @@ tresult PLUGIN_API HostCheckerController::setParamNormalized (ParamID tag, Param
 	{
 		addFeatureLog (kLogIdIParameterFunctionNameRandomizeSupported);
 	}
+	else if (tag == kParamRandomizeAroundCurrentTag)
+	{
+		addFeatureLog (kLogIdIParameterFunctionNameRandomizeAroundCurrentSupported);
+	}
 	//--- ----------------------------------------
 	else if (tag == kParamLowLatencyTag)
 	{
@@ -1021,7 +1056,7 @@ tresult PLUGIN_API HostCheckerController::setParamNormalized (ParamID tag, Param
 	{
 		bool latencyRestartWanted = false;
 		int32 tagOffset = (tag - kProcessWarnTag) * HostChecker::kParamWarnBitCount;
-		uint32 idValue = static_cast<uint32> (value * HostChecker::kParamWarnStepCount);
+		auto idValue = static_cast<uint32> (value * HostChecker::kParamWarnStepCount);
 		for (uint32 i = 0; i < HostChecker::kParamWarnBitCount; i++)
 		{
 			if (idValue & (1L << i))
@@ -1308,10 +1343,10 @@ tresult PLUGIN_API HostCheckerController::notify (IMessage* message)
 
 	if (FIDStringsEqual (message->getMessageID (), "LogEvent"))
 	{
-		int64 id;
+		int64 id = 0;
 		if (message->getAttributes ()->getInt ("ID", id) != kResultOk)
 			return kResultFalse;
-		int64 count;
+		int64 count = 0;
 		if (message->getAttributes ()->getInt ("Count", count) != kResultOk)
 			return kResultFalse;
 		addFeatureLog (id, static_cast<int32> (count), false);
@@ -1319,7 +1354,7 @@ tresult PLUGIN_API HostCheckerController::notify (IMessage* message)
 
 	if (FIDStringsEqual (message->getMessageID (), "Latency"))
 	{
-		int64 value;
+		int64 value = 0;
 		if (message->getAttributes ()->getInt ("Value", value) == kResultOk)
 		{
 			if (componentHandler)
@@ -1404,7 +1439,7 @@ tresult PLUGIN_API HostCheckerController::setChannelContextInfos (IAttributeList
 		return kResultFalse;
 
 	// optional we can ask for the Channel Name Length
-	int64 length;
+	int64 length = 0;
 	if (list->getInt (ChannelContext::kChannelNameLengthKey, length) == kResultTrue)
 	{
 	}
@@ -1421,13 +1456,13 @@ tresult PLUGIN_API HostCheckerController::setChannelContextInfos (IAttributeList
 	}
 
 	// get Channel Index
-	int64 index;
+	int64 index = 0;
 	if (list->getInt (ChannelContext::kChannelIndexKey, index) == kResultTrue)
 	{
 	}
 
 	// get the Channel Color
-	int64 color;
+	int64 color = 0;
 	if (list->getInt (ChannelContext::kChannelColorKey, color) == kResultTrue)
 	{
 		//	ColorSpec channelColor = (ColorSpec)color;
@@ -1753,6 +1788,12 @@ tresult PLUGIN_API HostCheckerController::getParameterIDFromFunctionName (UnitID
 
 		paramID = kParamRandomizeTag;
 	}
+	else if (FIDStringsEqual (functionName, FunctionNameType::kRandomizeAroundCurrent))
+	{
+		addFeatureLog (kLogIdIParameterFunctionNameRandomizeAroundCurrentSupported);
+
+		paramID = kParamRandomizeAroundCurrentTag;
+	}
 	else if (FIDStringsEqual (functionName, FunctionNameType::kLowLatencyMode))
 	{
 		addFeatureLog (kLogIdIParameterFunctionNameLowLatencySupported);
@@ -1790,7 +1831,7 @@ void PLUGIN_API HostCheckerController::onDataExchangeBlocksReceived (
 		{
 			// when the queue is implemented use this currentTime to find the correct ProcessContext
 			// to use
-			int64 currentSystemTime;
+			int64 currentSystemTime = 0;
 			systemTime->getSystemTime (currentSystemTime);
 		}
 
@@ -1848,6 +1889,28 @@ tresult PLUGIN_API HostCheckerController::getCompatibleParamID (const TUID plugi
 	}
 	//--- return kResultTrue if the mapping happens------------
 	return (newParamID == kNoParamId) ? kResultFalse : kResultTrue;
+}
+
+//------------------------------------------------------------------------
+tresult PLUGIN_API HostCheckerController::getVariationsInfo (
+    int32 busIndex, int16 channel,
+    Vst::NoteOnOrchestralArticulation::ClassificationVariations& info /*out*/)
+{
+	addFeatureLog (kLogIdINoteOnOrchestralArticulationInfoSupported);
+
+	if (busIndex == 0 && channel == 0)
+	{
+		using namespace Vst::NoteOnOrchestralArticulation;
+		for (int32 i = 0; i < ClassificationVariations::kNumClassifications; i++)
+		{
+			for (int32 j = 0; j < Variations::kNumSubClasses; j++)
+			{
+				info.classification[i].variation[j] = 1;
+			}
+		}
+		return kResultOk;
+	}
+	return kResultFalse;
 }
 
 //------------------------------------------------------------------------

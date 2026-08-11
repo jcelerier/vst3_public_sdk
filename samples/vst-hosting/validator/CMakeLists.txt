@@ -8,6 +8,7 @@ set(validator_sources
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/connectionproxytest.cpp
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/eventlisttest.cpp
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/hostclassestest.cpp
+    ${SDK_ROOT}/public.sdk/source/vst/hosting/test/miditovsttest.cpp
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/parameterchangestest.cpp
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/pluginterfacesupporttest.cpp
     ${SDK_ROOT}/public.sdk/source/vst/hosting/test/processdatatest.cpp

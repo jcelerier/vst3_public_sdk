@@ -82,6 +82,9 @@ PlugInterfaceSupport::PlugInterfaceSupport ()
 	//----VST 3.8------------------------------------
 	addPlugInterfaceSupported (IMidiMapping2::iid)
 	addPlugInterfaceSupported (IMidiLearn2::iid)
+	
+	//----VST 3.8.1----------------------------------
+	addPlugInterfaceSupported (ITransportControl::iid)
 	*/
 }
 

@@ -233,9 +233,9 @@ BusList* SingleComponentEffect::getBusList (MediaType type, BusDirection dir)
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API SingleComponentEffect::queryInterface (const TUID iid, void** obj)
+tresult PLUGIN_API SingleComponentEffect::queryInterface (const TUID _iid, void** obj)
 {
-	if (memcmp (iid, IConnectionPoint::iid, sizeof (::Steinberg::TUID)) == 0)
+	if (memcmp (_iid, IConnectionPoint::iid, sizeof (::Steinberg::TUID)) == 0)
 	{
 		// no need to expose IConnectionPoint to the host
 		return kNoInterface;
@@ -243,7 +243,7 @@ tresult PLUGIN_API SingleComponentEffect::queryInterface (const TUID iid, void**
 	DEF_INTERFACE (IComponent)
 	DEF_INTERFACE (IAudioProcessor)
 	DEF_INTERFACE (IProcessContextRequirements)
-	return EditControllerEx1::queryInterface (iid, obj);
+	return EditControllerEx1::queryInterface (_iid, obj);
 }
 
 //------------------------------------------------------------------------

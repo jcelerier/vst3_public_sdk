@@ -253,7 +253,13 @@ bool PLUGIN_API FlushParamTest::run (ITestResult* testResult)
 
 	unprepareProcessing ();
 
+	if (vstPlug->setActive (false) != kResultOk)
+		return false;
+
 	prepareProcessData ();
+
+	if (vstPlug->setActive (true) != kResultOk)
+		return false;
 
 	audioEffect->setProcessing (true);
 

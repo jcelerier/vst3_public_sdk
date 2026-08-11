@@ -78,8 +78,8 @@ LRESULT CALLBACK Window::WndProc (HWND hWnd, UINT message, WPARAM wParam, LPARAM
 //------------------------------------------------------------------------
 void Window::registerWindowClass (HINSTANCE instance)
 {
-	static bool once = true;
-	if (!once)
+	static bool once = false;
+	if (once)
 		return;
 	once = true;
 

@@ -66,8 +66,8 @@ GainParameter::GainParameter (int32 flags, int32 id)
 
 	info.flags = flags;
 	info.id = id;
-	info.stepCount = 0;
-	info.defaultNormalizedValue = 0.5f;
+	info.stepCount = kStepCountContinuous;
+	info.defaultNormalizedValue = 0.5;
 	info.unitId = kRootUnitId;
 
 	setNormalized (1.f);
@@ -137,14 +137,14 @@ tresult PLUGIN_API AGainSimple::initialize (FUnknown* context)
 	parameters.addParameter (gainParam);
 
 	//---VuMeter parameter---
-	int32 stepCount = 0;
+	int32 stepCount = kStepCountContinuous;
 	ParamValue defaultVal = 0;
 	int32 flags = ParameterInfo::kIsReadOnly;
 	int32 tag = kVuPPMId;
 	parameters.addParameter (USTRING ("VuPPM"), nullptr, stepCount, defaultVal, flags, tag);
 
 	//---Bypass parameter---
-	stepCount = 1;
+	stepCount = kStepCountToggle;
 	defaultVal = 0;
 	flags = ParameterInfo::kCanAutomate | ParameterInfo::kIsBypass;
 	tag = kBypassId;
@@ -662,10 +662,10 @@ TChar* AGainSimple::getDefaultMessageText ()
 }
 
 //-----------------------------------------------------------------------------
-tresult PLUGIN_API AGainSimple::queryInterface (const TUID iid, void** obj)
+tresult PLUGIN_API AGainSimple::queryInterface (const TUID _iid, void** obj)
 {
 	DEF_INTERFACE (IMidiMapping)
-	return SingleComponentEffect::queryInterface (iid, obj);
+	return SingleComponentEffect::queryInterface (_iid, obj);
 }
 
 //------------------------------------------------------------------------

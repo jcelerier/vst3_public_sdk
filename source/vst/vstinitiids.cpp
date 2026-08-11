@@ -27,8 +27,9 @@
 #include "pluginterfaces/vst/ivsthostapplication.h"
 #include "pluginterfaces/vst/ivstinterappaudio.h"
 #include "pluginterfaces/vst/ivstmessage.h"
-#include "pluginterfaces/vst/ivstmidimapping2.h"
 #include "pluginterfaces/vst/ivstmidilearn.h"
+#include "pluginterfaces/vst/ivstmidimapping2.h"
+#include "pluginterfaces/vst/ivstnoteonorchestralarticulationinfo.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/vst/ivstparameterfunctionname.h"
 #include "pluginterfaces/vst/ivstphysicalui.h"
@@ -38,6 +39,7 @@
 #include "pluginterfaces/vst/ivstremapparamid.h"
 #include "pluginterfaces/vst/ivstrepresentation.h"
 #include "pluginterfaces/vst/ivsttestplugprovider.h"
+#include "pluginterfaces/vst/ivsttransportcontrol.h"
 #include "pluginterfaces/vst/ivstunits.h"
 
 //------------------------------------------------------------------------
@@ -135,5 +137,9 @@ DEF_CLASS_IID (Vst::IRemapParamID)
 //----VST 3.8------------------------------------
 DEF_CLASS_IID (Vst::IMidiMapping2)
 DEF_CLASS_IID (Vst::IMidiLearn2)
+
+//----VST 3.8.1----------------------------------
+DEF_CLASS_IID (Vst::ITransportControl)
+DEF_CLASS_IID (Vst::NoteOnOrchestralArticulation::IInfo)
 
 } // Steinberg

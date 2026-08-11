@@ -75,7 +75,7 @@ tresult PLUGIN_API UTF16NameProcessor::setActive (TBool state)
 }
 
 //------------------------------------------------------------------------
-tresult PLUGIN_API UTF16NameProcessor::process (Vst::ProcessData& data)
+tresult PLUGIN_API UTF16NameProcessor::process (Vst::ProcessData& /*data*/)
 {
 	//--- First : Read inputs parameter changes-----------
 

@@ -58,8 +58,8 @@ GainParameter::GainParameter (int32 flags, int32 id)
 
 	info.flags = flags;
 	info.id = id;
-	info.stepCount = 0;
-	info.defaultNormalizedValue = 0.5f;
+	info.stepCount = kStepCountContinuous;
+	info.defaultNormalizedValue = 0.5;
 	info.unitId = kRootUnitId;
 
 	setNormalized (1.f);
@@ -145,14 +145,14 @@ tresult PLUGIN_API AGainController::initialize (FUnknown* context)
 	gainParam->setUnitID (1);
 
 	//---VuMeter parameter---
-	int32 stepCount = 0;
+	int32 stepCount = kStepCountContinuous;
 	ParamValue defaultVal = 0;
 	int32 flags = ParameterInfo::kIsReadOnly;
 	int32 tag = kVuPPMId;
 	parameters.addParameter (STR16 ("VuPPM"), nullptr, stepCount, defaultVal, flags, tag);
 
 	//---Bypass parameter---
-	stepCount = 1;
+	stepCount = kStepCountToggle;
 	defaultVal = 0;
 	flags = ParameterInfo::kCanAutomate | ParameterInfo::kIsBypass;
 	tag = kBypassId;

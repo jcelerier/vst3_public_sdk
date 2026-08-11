@@ -182,6 +182,7 @@ bool PlugProvider::setupPlugin (FUnknown* hostContext)
 								stream << "Failed to initialize controller of " << classInfo.name ()
 								       << "!\n";
 							});
+							return false;
 						}
 					}
 					else

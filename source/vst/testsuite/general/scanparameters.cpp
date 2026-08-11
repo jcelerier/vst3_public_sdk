@@ -150,9 +150,9 @@ bool PLUGIN_API ScanParametersTest::run (ITestResult* testResult)
 			    printf ("=>Parameter %03d (id=%d): invalid stepcount (<0)!!!", i, paramId));
 			return false;
 		}
-		if (paramInfo.stepCount == 0)
+		if (paramInfo.stepCount == kStepCountContinuous)
 			paramType = "Float";
-		else if (paramInfo.stepCount == 1)
+		else if (paramInfo.stepCount == kStepCountToggle)
 			paramType = "Toggle";
 		else
 			paramType = "Discrete";
@@ -185,7 +185,7 @@ bool PLUGIN_API ScanParametersTest::run (ITestResult* testResult)
 				addMessage (
 				    testResult,
 				    printf (
-				        "=>Parameter %03d (id=%d): [title=\"%s\"] has the same title as another parameter in this unit = %d!",
+				        R"(=>Parameter %03d (id=%d): [title="%s"] has the same title as another parameter in this unit = %d!)",
 				        i, paramId, paramTitle.c_str (), paramInfo.unitId));
 			}
 		}
@@ -332,6 +332,48 @@ bool PLUGIN_API ScanParametersTest::run (ITestResult* testResult)
 				return false;
 			}
 		}
+
+		// --- Check if getParamValueByString returns the original normalized value for the string
+		// returned by getParamStringByValue (no error for now just warning)
+		auto currentNormVal = controller->getParamNormalized (paramId);
+		String128 currentString;
+		if (controller->getParamStringByValue (paramId, currentNormVal, currentString) == kResultOk)
+		{
+			ParamValue valueFromString = 0.f;
+			auto res = controller->getParamValueByString (paramId, currentString, valueFromString);
+			if (res == kResultOk)
+			{
+				if (std::abs (valueFromString - currentNormVal) > 0.0001f)
+				{
+					std::string str = StringConvert::convert (currentString);
+					addMessage (
+					    testResult,
+					    printf (
+					        R"(=>Parameter %03d (id=%d): getParamValueByString ("%s") doesn't return the original normalized value! Got %f instead of %f.)",
+					        i, paramId, str.c_str (), valueFromString, currentNormVal));
+				}
+			}
+			else
+			{
+				std::string str = StringConvert::convert (currentString);
+				if (res == kNotImplemented)
+				{
+					addMessage (
+					    testResult,
+					    printf (
+					        R"(=>Parameter %03d (id=%d): getParamValueByString ("%s") not implemented.)",
+					        i, paramId, str.c_str ()));
+				}
+				else
+				{
+					addMessage (
+					    testResult,
+					    printf (
+					        R"(=>Parameter %03d (id=%d): getParamValueByString ("%s") failed for the string returned by getParamStringByValue.)",
+					        i, paramId, str.c_str ()));
+				}
+			}
+		}
 	} // end for each parameter
 
 	for (const auto& unit : unitIds)
@@ -341,7 +383,7 @@ bool PLUGIN_API ScanParametersTest::run (ITestResult* testResult)
 			addMessage (
 			    testResult,
 			    printf (
-			        "Note: This Unit (idx=%d, id=%d, name=\"%s\") has %d parameters: it could be better to split it in sub-units!.",
+			        R"(Note: This Unit (idx=%d, id=%d, name="%s") has %d parameters: it could be better to split it in sub-units!.)",
 			        unit.second.idx, unit.first, unit.second.name.data (), unit.second.numParams));
 		}
 	}

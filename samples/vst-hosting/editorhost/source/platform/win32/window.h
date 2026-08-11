@@ -159,7 +159,7 @@ struct ShcoreLibrary : DynamicLibrary
 		if (!getDpiForMonitorProc)
 			return {};
 		auto monitor = MonitorFromWindow (window, MONITOR_DEFAULTTONEAREST);
-		UINT x, y;
+		UINT x {}, y {};
 		getDpiForMonitorProc (monitor, MDT_EFFECTIVE_DPI, &x, &y);
 		return DPI {x, y};
 	}

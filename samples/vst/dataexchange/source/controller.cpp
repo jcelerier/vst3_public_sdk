@@ -22,9 +22,7 @@
 #include "waveformview.h"
 #include "public.sdk/source/vst/utility/dataexchange.h"
 #include "public.sdk/source/vst/utility/ringbuffer.h"
-#include "public.sdk/source/vst/utility/rttransfer.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
-#include "pluginterfaces/base/funknownimpl.h"
 
 #include <deque>
 #include <mutex>

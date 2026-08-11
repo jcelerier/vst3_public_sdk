@@ -22,7 +22,6 @@
 
 #include "pluginterfaces/base/futils.h"
 #include "pluginterfaces/base/ibstream.h"
-#include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 
 #include "base/source/fstreamer.h"

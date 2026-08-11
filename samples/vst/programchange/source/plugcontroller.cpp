@@ -41,7 +41,7 @@ tresult PLUGIN_API PlugController::initialize (FUnknown* context)
 	//---Create Parameters------------
 
 	//---Bypass parameter---
-	int32 stepCount = 1;
+	int32 stepCount = kStepCountToggle;
 	ParamValue defaultVal = 0;
 	int32 flags = ParameterInfo::kCanAutomate | ParameterInfo::kIsBypass;
 	int32 tag = kBypassId;

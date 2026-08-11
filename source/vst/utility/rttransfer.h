@@ -75,7 +75,7 @@ struct RTTransferT
 
 	/** Transfer an object to the realtime context.
 	 *
-	 * 	The ownership of newObject is transfered to this object and the Deleter is used to free
+	 * 	The ownership of newObject is transferred to this object and the Deleter is used to free
 	 *	the memory of it afterwards.
 	 *
 	 *	If there's already an object in transfer the previous object will be deallocated and

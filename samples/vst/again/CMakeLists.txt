@@ -11,6 +11,7 @@ if(NOT SMTG_ENABLE_VSTGUI_SUPPORT)
 endif()
 
 set(again_sources
+    ${SDK_ROOT}/public.sdk/source/vst/utility/test/midiconverttest.cpp
     source/again.cpp
     source/again.h
     source/againcids.h
