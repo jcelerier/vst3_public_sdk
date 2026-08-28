@@ -20,8 +20,9 @@
 
 #include "pluginterfaces/base/funknownimpl.h"
 
-#include <shlobj.h>
 #include <windows.h>
+
+#include <shlobj.h>
 
 #include <algorithm>
 #include <iostream>

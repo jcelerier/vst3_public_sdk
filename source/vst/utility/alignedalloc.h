@@ -25,7 +25,7 @@
 #include <AvailabilityMacros.h>
 #endif
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #include <malloc.h>
 #endif
 
@@ -53,7 +53,7 @@ inline void* aligned_alloc (size_t numBytes, uint32_t alignment)
 #if SMTG_OS_MACOS && defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
     MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_15
 	posix_memalign (&data, alignment, numBytes);
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
 	data = _aligned_malloc (numBytes, alignment);
 #else
 	data = std::aligned_alloc (alignment, numBytes);
@@ -68,7 +68,7 @@ inline void aligned_free (void* addr, uint32_t alignment)
 		std::free (addr);
 	else
 	{
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 		_aligned_free (addr);
 #else
 		std::free (addr);

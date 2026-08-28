@@ -17,6 +17,8 @@
 #pragma once
 
 #include "pluginterfaces/vst/vsttypes.h"
+#include <cinttypes>
+#include <cstdint>
 #include <string>
 
 namespace Steinberg {
