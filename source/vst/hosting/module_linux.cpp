@@ -22,6 +22,8 @@
 
 #include <algorithm>
 #include <dlfcn.h>
+#include <string>
+#include <vector>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -68,13 +70,19 @@ using Path = filesystem::path;
 namespace {
 
 //------------------------------------------------------------------------
-Optional<std::string> getCurrentMachineName ()
+std::vector<std::string> getCurrentMachineNames ()
 {
 	struct utsname unameData;
 
 	int res = uname (&unameData);
 	if (res != 0)
 		return {};
+
+	// Depending on the distribution, 64-bit ARM plug-ins ship either in an
+	// "aarch64-linux" or in an "armv8l-linux" folder while uname always
+	// reports "aarch64": look for both.
+	if (unameData.machine == std::string ("aarch64"))
+		return {"aarch64", "armv8l"};
 
 	return {unameData.machine};
 }
@@ -139,17 +147,21 @@ public:
 			return {};
 
 		// use the Machine Hardware Name (from uname cmd-line) as prefix for "-linux"
-		auto machine = getCurrentMachineName ();
-		if (!machine)
+		auto machines = getCurrentMachineNames ();
+		if (machines.empty ())
 			return {};
 
-		modulePath /= *machine + "-linux";
-		if (!filesystem::is_directory (modulePath))
-			return {};
+		for (const auto& machine : machines)
+		{
+			auto archPath = modulePath / (machine + "-linux");
+			if (!filesystem::is_directory (archPath))
+				continue;
 
-		modulePath /= stem;
-		modulePath += ".so";
-		return Optional<Path> (std::move (modulePath));
+			archPath /= stem;
+			archPath += ".so";
+			return Optional<Path> (std::move (archPath));
+		}
+		return {};
 	}
 
 	bool load (const std::string& inPath, std::string& errorDescription) override
@@ -364,19 +376,24 @@ bool Module::validateBundleStructure (const std::string& modulePath, std::string
 		return false;
 	}
 
-	auto machine = getCurrentMachineName ();
-	if (!machine)
+	auto machines = getCurrentMachineNames ();
+	if (machines.empty ())
 	{
 		errorDescription = "Could not get the current machine name.";
 		return false;
 	}
 
-	path /= *machine + "-linux";
-	if (filesystem::exists (path) == false)
+	auto archPath = std::find_if (machines.begin (), machines.end (), [&] (const auto& machine) {
+		return filesystem::exists (path / (machine + "-linux"));
+	});
+	if (archPath == machines.end ())
 	{
-		errorDescription = "Expecting '" + *machine + "-linux' as architecture subfolder.";
+		errorDescription =
+		    "Expecting '" + machines.front () + "-linux' as architecture subfolder.";
 		return false;
 	}
+
+	path /= *archPath + "-linux";
 	moduleName.replace_extension (".so");
 	path /= moduleName;
 
